@@ -47,7 +47,7 @@ interface fakeWindow {
 }
 
 const canvas = {
-  baseUrl: 'https://megacloud.tv/embed-2/e-1/1hnXq7VzX0Ex?k=1',
+  baseUrl: 'https://megacloud.blog/embed-2/v2/e-1/1hnXq7VzX0Ex?k=1',
   width: 0,
   height: 0,
   style: {
@@ -74,10 +74,10 @@ const fake_window: fakeWindow = {
     cookie: '',
   },
 
-  origin: 'https://megacloud.tv',
+  origin: 'https://megacloud.blog',
   location: {
-    href: 'https://megacloud.tv/embed-2/e-1/1hnXq7VzX0Ex?k=1',
-    origin: 'https://megacloud.tv',
+    href: 'https://megacloud.blog/embed-2/v2/e-1/1hnXq7VzX0Ex?k=1',
+    origin: 'https://megacloud.blog',
   },
   performance: {
     timeOrigin: dateNow,
@@ -95,7 +95,7 @@ const fake_window: fakeWindow = {
 
 const nodeList = {
   image: {
-    src: 'https://megacloud.tv/images/image.png?v=0.1.0',
+    src: 'https://megacloud.blog/images/image.png?v=0.1.0',
     height: 50,
     width: 65,
     complete: true,
@@ -650,7 +650,7 @@ let wasmLoader = Object.assign(loadWasm, { initSync: QZ }, grootLoader);
 
 const V = async () => {
   try {
-    let Q0 = await wasmLoader('https://megacloud.tv/images/loading.png?v=0.0.9');
+    let Q0 = await wasmLoader('https://megacloud.blog/images/loading.png?v=0.0.9');
 
     fake_window.bytes = Q0;
     wasmLoader.groot();
@@ -709,8 +709,18 @@ function transformURL(url: string) {
   return null;
 }
 
+async function megaCloudKey() {
+  const ts = Date.now();
+  const resp = await fetch(
+    `https://raw.githubusercontent.com/carlosesteven/e1-player-deobf/main/output/key.json?v=${ts}`
+  );
+  const data = await resp.json();
+  return data.decryptKey;
+}
+
 export async function getSources(embed_url: string, site: string) {
   await getMeta(embed_url, site);
+  console.log('\n\n- embed_url: ', embed_url);
   let xrax = embed_url.split('/').pop()?.split('?').shift();
   let regx = /https:\/\/[a-zA-Z0-9.]*/;
   let base_url = embed_url.match(regx)?.[0];
@@ -726,20 +736,7 @@ export async function getSources(embed_url: string, site: string) {
     let getSourcesUrl = '';
 
     if (base_url!.includes('mega')) {
-      getSourcesUrl =
-        base_url +
-        '/' +
-        test[3] +
-        '/ajax/' +
-        test[4] +
-        '/getSources?id=' +
-        fake_window.pid +
-        '&v=' +
-        fake_window.localStorage.kversion +
-        '&h=' +
-        fake_window.localStorage.kid +
-        '&b=' +
-        browser_version;
+      getSourcesUrl = base_url + '/embed-2/v2/e-1/getSources?id=' + xrax;
     } else {
       getSourcesUrl =
         base_url +
@@ -756,7 +753,7 @@ export async function getSources(embed_url: string, site: string) {
         '&b=' +
         browser_version;
     }
-    // console.log('getSourcesUrl: ', getSourcesUrl);
+    console.log('\n\n- getSourcesUrl: ', getSourcesUrl);
     let resp_json = await (
       await fetch(getSourcesUrl, {
         headers: {
@@ -770,18 +767,34 @@ export async function getSources(embed_url: string, site: string) {
         mode: 'cors',
       })
     ).json();
-    //let encrypted = resp_json.sources;
-    let Q3 = fake_window.localStorage.kversion;
-    let Q1 = z(Q3);
-    let Q5 = fake_window.navigate();
-    Q5 = new Uint8Array(Q5);
-    let Q8: any;
-    Q8 = resp_json.t != 0 ? (i(Q5, Q1), Q5) : ((Q8 = resp_json.k), i(Q8, Q1), Q8);
-    // @ts-ignore
-    const str = btoa(String.fromCharCode.apply(null, new Uint8Array(Q8)));
+
+    const data = await resp_json;
+
+    var keyToUse = '';
+
+    if (data && data.sources) {
+      keyToUse = await megaCloudKey();
+    } else {
+      let Q3 = fake_window.localStorage.kversion;
+      let Q1 = z(Q3);
+      let Q5 = fake_window.navigate();
+      Q5 = new Uint8Array(Q5);
+      let Q8: any;
+      Q8 = resp_json.t != 0 ? (i(Q5, Q1), Q5) : ((Q8 = resp_json.k), i(Q8, Q1), Q8);
+      // @ts-ignore
+      const str = btoa(String.fromCharCode.apply(null, new Uint8Array(Q8)));
+      const apiKey = await megaCloudKey();
+      keyToUse = !apiKey || apiKey.trim() === '' ? str : apiKey;
+    }
+
+    console.log('\n\n- data.sources:', data.sources);
+
+    console.log('\n\n- Key: ', keyToUse);
 
     // @ts-ignore
-    resp_json.sources = M(resp_json.sources, str) as extractedSources[];
+    resp_json.sources = M(data.sources, keyToUse) as extractedSources[];
+
+    console.log('\n\n- resp_json.sources:', resp_json.sources);
 
     return resp_json;
   } catch (err) {
